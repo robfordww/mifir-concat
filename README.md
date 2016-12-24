@@ -2,7 +2,7 @@
 Library to derive MiFIR CONCAT
 
 This implements a CONCAT derivation algorithm based on RTS 22 of MiFIR and ESMA's Guidelines for transaction reporting.
-* High speed; 10.000++ concats a second
+* High speed; Expect >100.000 CONCATs a second on single thread i5 cpu
 * Full unicode mapping
 * Removal of prefix and titles
 * Verified with the tests in the guidelines

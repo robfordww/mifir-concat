@@ -59,7 +59,7 @@ func TestGuidelineExamplesExtended(t *testing.T) {
 }
 
 func concatTester(t *testing.T, country, date, firstname, lastname string, expected string) {
-	c, err := createConcat(country, date, firstname, lastname)
+	c, err := CreateConcat(country, date, firstname, lastname)
 
 	if expected == "" {
 		// Expect an error
@@ -78,10 +78,6 @@ func concatTester(t *testing.T, country, date, firstname, lastname string, expec
 		t.Error("Expected", expected, " got ", c)
 		t.Fail()
 	}
-}
-
-func init() {
-
 }
 
 func BenchmarkCONCAT(b *testing.B) {
@@ -108,14 +104,12 @@ func BenchmarkCONCAT(b *testing.B) {
 		}
 		return string(b)
 	}
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			datestr := time.Now().Add(-time.Hour * 24 * time.Duration(rand.Int()%1000)).Format("20060102")
-			firstname := randletters(8)
-			lastname := randletters(8)
-			createConcat(ccalpha2[int(rand.Int63())%len(ccalpha2)], datestr,
-				firstname, lastname)
-		}
-	})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		datestr := time.Now().Add(-time.Hour * 24 * time.Duration(rand.Int()%1000)).Format("20060102")
+		firstname := randletters(8)
+		lastname := randletters(8)
+		CreateConcat(ccalpha2[int(rand.Int63())%len(ccalpha2)], datestr,
+			firstname, lastname)
+	}
 }

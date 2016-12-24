@@ -103,7 +103,24 @@ var (
 
 		0x0179: 'Z', 0x017A: 'Z', 0x017D: 'Z', 0x017E: 'Z', 0x017B: 'Z', 0x017C: 'Z',
 	}
+	prefixset, ccalpha2set, titlesset map[string]bool
 )
+
+func init() {
+	// Create fast lookup set dynamically to preserve readability of the
+	// literals above
+	prefixset = createSet(prefix)
+	ccalpha2set = createSet(ccalpha2)
+	titlesset = createSet(titles)
+}
+
+func createSet(sa []string) map[string]bool {
+	set := make(map[string]bool)
+	for i := range sa {
+		set[sa[i]] = true
+	}
+	return set
+}
 
 func characterRewrite(input string) string {
 	// Apply the A-Z untouched, apply charactermap, any other char is deleted
@@ -122,29 +139,18 @@ func characterRewrite(input string) string {
 }
 
 func validateCountryCode(countrycode string) bool {
-	if len(countrycode) != 2 {
-		return false
-	}
-	for i := range ccalpha2 {
-		if strings.ToUpper(countrycode) == ccalpha2[i] {
-			return true
-		}
-	}
-	return false
+	return ccalpha2set[strings.ToUpper(countrycode)]
 }
 
-func removePrefix(target string, list []string) string {
-	longest := 0
-	upperTarget := strings.ToUpper(target)
-	for i := range list {
-		if strings.HasPrefix(upperTarget, list[i]+" ") {
-			plength := len(list[i])
-			if plength > longest {
-				longest = plength
-			}
+func removePrefix(target string, set map[string]bool) string {
+	target = strings.ToUpper(target)
+	for li := strings.LastIndex(target, " "); li > 0; {
+		if set[target[0:li]] {
+			return target[li+1:]
 		}
+		li = strings.LastIndex(target[0:li], " ")
 	}
-	return strings.Trim(target[longest:], " ")
+	return strings.TrimSpace(target)
 }
 
 func capAndPad(s string) string {
@@ -155,13 +161,19 @@ func capAndPad(s string) string {
 }
 
 func removeChars(s string, rs []rune) string {
-	for _, r := range rs {
-		s = strings.Replace(s, string(r), "", -1)
-	}
-	return s
+	return strings.Map(func(sr rune) rune {
+		for i := range rs {
+			if sr == rs[i] {
+				return -1
+			}
+		}
+		return sr
+	}, s)
 }
 
-func createConcat(countrycode, birthdate, firstname, lastname string) (string, error) {
+// CreateConcat returns a CONCAT string from the input parameters. An error
+// returns an empty string and error message
+func CreateConcat(countrycode, birthdate, firstname, lastname string) (string, error) {
 	if len(firstname) < 1 || len(lastname) < 1 {
 		return "", errors.New("Zero length names")
 	}
@@ -172,16 +184,18 @@ func createConcat(countrycode, birthdate, firstname, lastname string) (string, e
 		return "", errors.New("Invalid birthdate format" + err.Error())
 	}
 
+	firstname, lastname = strings.TrimSpace(firstname), strings.TrimSpace(lastname)
 	// Not specified, but remove first .,; so that titles like "dr.",  "mr."
 	// are are removed as well
+
 	punctlist := []rune{'.', ',', ';'}
 	firstname = removeChars(firstname, punctlist)
 	lastname = removeChars(lastname, punctlist)
 
-	firstname = removePrefix(firstname, prefix)
-	firstname = removePrefix(firstname, titles)
-	lastname = removePrefix(lastname, prefix)
-	lastname = removePrefix(lastname, titles)
+	firstname = removePrefix(firstname, titlesset)
+	firstname = removePrefix(firstname, prefixset)
+	lastname = removePrefix(lastname, titlesset)
+	lastname = removePrefix(lastname, prefixset)
 
 	// if firstanme contains more names like "Erwin Rudolf Josef Alexander", split
 	// on " " to separate first names. This seems in alignment with specifications
@@ -194,7 +208,6 @@ func createConcat(countrycode, birthdate, firstname, lastname string) (string, e
 }
 
 func main() {
-
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of: %s\n", os.Args[0])
 		fmt.Fprint(os.Stderr, "\nMifirCONCAT accepts input data on stdin in the form:\n"+
@@ -221,7 +234,7 @@ func main() {
 			fmt.Fprintln(os.Stdout, "***FAIL***")
 			continue
 		}
-		concat, err := createConcat(params[0], params[1], params[2], params[3])
+		concat, err := CreateConcat(params[0], params[1], params[2], params[3])
 		if err != nil {
 			fmt.Fprintln(os.Stdout, "***FAIL***")
 		} else {
